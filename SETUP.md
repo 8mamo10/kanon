@@ -203,6 +203,29 @@ source venv/bin/activate  # Make sure venv is activated
 pip install -r requirements.txt
 ```
 
+**"PyMuPDF installation failed" or "metadata-generation-failed"**
+
+PyMuPDF requires compilation. Try these solutions:
+
+```bash
+# Solution 1: Upgrade pip and install separately
+pip install --upgrade pip setuptools wheel
+pip install pymupdf
+pip install -r requirements.txt
+
+# Solution 2 (macOS): Install Xcode command line tools
+xcode-select --install
+pip install -r requirements.txt
+
+# Solution 3: Use Python 3.11 or 3.12 instead of 3.13+
+# PyMuPDF may not have pre-built wheels for very new Python versions
+brew install python@3.11
+python3.11 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+```
+
 **"Gemini API key not configured" (when you want real analysis)**
 - Check that `.env` file exists in `backend/` directory
 - Verify `GEMINI_API_KEY=your_key_here` is set correctly
