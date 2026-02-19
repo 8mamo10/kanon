@@ -1,12 +1,12 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Gemini API Configuration
-    gemini_api_key: str
+    gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-1.5-pro"
 
     # CORS Configuration

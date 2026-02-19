@@ -19,13 +19,21 @@ class GeminiService:
 
     def __init__(self):
         """Initialize Gemini API client."""
+        self.enabled = False
+        self.model = None
+
+        if not settings.gemini_api_key:
+            logger.warning("Gemini API key not configured - analysis will return mock data")
+            return
+
         try:
             genai.configure(api_key=settings.gemini_api_key)
             self.model = genai.GenerativeModel(settings.gemini_model)
+            self.enabled = True
             logger.info(f"Gemini service initialized with model: {settings.gemini_model}")
         except Exception as e:
             logger.error(f"Failed to initialize Gemini service: {str(e)}")
-            raise GeminiServiceError(f"Gemini initialization failed: {str(e)}")
+            logger.warning("Gemini service will return mock data")
 
     def analyze_comprehensive(
         self,
@@ -53,6 +61,11 @@ class GeminiService:
         Raises:
             GeminiServiceError: If analysis fails
         """
+        # Return mock data if Gemini is not enabled
+        if not self.enabled:
+            logger.info("Gemini not enabled - returning mock analysis data")
+            return self._get_mock_analysis(metadata)
+
         if not text or not text.strip():
             logger.warning("Empty text provided for analysis")
             return self._get_empty_analysis()
@@ -205,6 +218,31 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
             "key_insights": ["Document contains no extractable text"]
         }
 
+    def _get_mock_analysis(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Return mock analysis data when Gemini is not enabled."""
+        page_count = metadata.get("page_count", 0)
+        title = metadata.get("title", "PDF Document")
+
+        return {
+            "summary": f"This is a {page_count}-page PDF document titled '{title}'. Gemini API analysis is not configured - this is mock data for testing the PDF viewer.",
+            "extracted_data": {
+                "key_entities": ["Sample Entity", "Example Organization"],
+                "dates": ["2024", "January 1, 2024"],
+                "numbers": ["100", "42"],
+                "topics": ["PDF Viewing", "Document Display", "Testing"]
+            },
+            "classification": {
+                "document_type": "PDF Document (Mock Analysis)",
+                "industry": "General",
+                "confidence": "low"
+            },
+            "key_insights": [
+                "Gemini API key is not configured",
+                "This is mock data for testing PDF display",
+                "Configure GEMINI_API_KEY in .env to enable real analysis"
+            ]
+        }
+
     def check_connection(self) -> bool:
         """
         Check if Gemini API connection is working.
@@ -212,6 +250,9 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
         Returns:
             True if connection successful, False otherwise
         """
+        if not self.enabled or not self.model:
+            return False
+
         try:
             # Simple test prompt
             response = self.model.generate_content("Respond with 'OK'")

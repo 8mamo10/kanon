@@ -7,7 +7,7 @@ FastAPI backend for PDF analysis using Google Gemini API.
 ### Prerequisites
 
 - Python 3.11 or higher
-- Google Gemini API key
+- Google Gemini API key (optional - app works without it for testing PDF display)
 
 ### Installation
 
@@ -50,7 +50,7 @@ API documentation (Swagger UI): `http://localhost:8000/docs`
 
 ## Environment Variables
 
-- `GEMINI_API_KEY` - Your Google Gemini API key (required)
+- `GEMINI_API_KEY` - Your Google Gemini API key (optional - returns mock data if not set)
 - `GEMINI_MODEL` - Gemini model to use (default: gemini-1.5-pro)
 - `ALLOWED_ORIGINS` - CORS allowed origins (default: http://localhost:3000)
 - `MAX_FILE_SIZE_MB` - Maximum file size in MB (default: 10)

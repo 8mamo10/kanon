@@ -27,7 +27,7 @@ This is a monorepo containing:
 - **Node.js** v20 or higher
 - **Python** 3.11 or higher
 - **pnpm** package manager
-- **Google Gemini API Key** ([Get one here](https://ai.google.dev/))
+- **Google Gemini API Key** (optional for testing - [Get one here](https://ai.google.dev/))
 
 ## Quick Start
 
@@ -50,9 +50,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Configure environment
+# Configure environment (optional - app works without Gemini API for testing)
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
+# Edit .env and add your GEMINI_API_KEY (optional)
 ```
 
 ### 3. Frontend Setup
@@ -158,7 +158,7 @@ Deletes a specific PDF file.
 ## Environment Variables
 
 ### Backend (.env)
-- `GEMINI_API_KEY`: Your Google Gemini API key (required)
+- `GEMINI_API_KEY`: Your Google Gemini API key (optional - uses mock data if not set)
 - `GEMINI_MODEL`: Gemini model to use (default: gemini-1.5-pro)
 - `ALLOWED_ORIGINS`: CORS allowed origins (default: http://localhost:3000)
 - `MAX_FILE_SIZE_MB`: Maximum upload size in MB (default: 10)
@@ -193,9 +193,13 @@ Upload various types of PDFs to test:
 
 ### Backend Issues
 
-**"Gemini API key not found"**
-- Make sure you've created a `.env` file in the `backend` directory
-- Add your API key: `GEMINI_API_KEY=your_key_here`
+**Analysis shows mock data**
+- This is normal if you haven't configured a Gemini API key
+- The app works without Gemini for testing PDF display
+- To enable real AI analysis, add your API key to `backend/.env`:
+  - Create `.env` file: `cp .env.example .env`
+  - Add your key: `GEMINI_API_KEY=your_key_here`
+  - Get a free key from https://ai.google.dev/
 
 **"Module not found" errors**
 - Activate virtual environment: `source venv/bin/activate`
