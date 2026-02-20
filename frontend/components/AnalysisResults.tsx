@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { AnalysisResult, PDFMetadata } from '@/lib/types';
+import type { AnalysisResult, PDFMetadata, ExtractedElement } from '@/lib/types';
 
 interface AnalysisResultsProps {
   analysis: AnalysisResult;
@@ -19,6 +19,47 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
     } catch (error) {
       console.error('Failed to copy:', error);
     }
+  };
+
+  const renderExtractedElements = (elements: ExtractedElement[], title: string, sectionKey: string) => {
+    if (!elements || elements.length === 0) return null;
+
+    const copyText = elements.map(el =>
+      `${el.value}\nCoordinates: x(${el.coordinate.x.left_x}, ${el.coordinate.x.right_x}), y(${el.coordinate.y.lower_y}, ${el.coordinate.y.upper_y})`
+    ).join('\n\n');
+
+    return (
+      <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+        <div className="flex items-start justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {title}
+          </h3>
+          <button
+            onClick={() => copyToClipboard(copyText, sectionKey)}
+            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+          >
+            {copiedSection === sectionKey ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+        <div className="space-y-3">
+          {elements.map((element, index) => (
+            <div key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 dark:bg-gray-900/50 rounded">
+              <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                {element.value}
+              </p>
+              <div className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                <span className="inline-block mr-4">
+                  X: [{element.coordinate.x.left_x}, {element.coordinate.x.right_x}]
+                </span>
+                <span className="inline-block">
+                  Y: [{element.coordinate.y.lower_y}, {element.coordinate.y.upper_y}]
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
   };
 
   return (
@@ -68,6 +109,18 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
         </div>
       </section>
 
+      {/* Dimensions Section */}
+      {renderExtractedElements(analysis.dimension, 'Dimensions', 'dimensions')}
+
+      {/* Annotations Section */}
+      {renderExtractedElements(analysis.annotation, 'Annotations', 'annotations')}
+
+      {/* Title Block Section */}
+      {renderExtractedElements(analysis.title_block, 'Title Block', 'title_block')}
+
+      {/* Others Section */}
+      {renderExtractedElements(analysis.others, 'Other Information', 'others')}
+
       {/* Key Insights Section */}
       {analysis.key_insights && analysis.key_insights.length > 0 && (
         <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
@@ -92,90 +145,6 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
           </ul>
         </section>
       )}
-
-      {/* Extracted Data Section */}
-      <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Extracted Data
-        </h3>
-        <div className="space-y-4">
-          {/* Key Entities */}
-          {analysis.extracted_data.key_entities.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                Key Entities
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.extracted_data.key_entities.map((entity, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-sm"
-                  >
-                    {entity}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Topics */}
-          {analysis.extracted_data.topics.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                Topics
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.extracted_data.topics.map((topic, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-sm"
-                  >
-                    {topic}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dates */}
-          {analysis.extracted_data.dates.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                Important Dates
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.extracted_data.dates.map((date, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm"
-                  >
-                    {date}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Numbers */}
-          {analysis.extracted_data.numbers.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                Key Numbers
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {analysis.extracted_data.numbers.map((number, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full text-sm"
-                  >
-                    {number}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
 
       {/* Metadata Section */}
       <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">

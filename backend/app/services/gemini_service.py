@@ -98,36 +98,95 @@ class GeminiService:
         page_count = metadata.get("page_count", "unknown")
         title = metadata.get("title", "untitled")
 
-        prompt = f"""You are an expert document analyzer. Analyze the following PDF document and provide a comprehensive analysis.
+        prompt = f"""You are an expert technical drawing and document analyzer. Analyze the following PDF document and extract structured information.
 
 Document Metadata:
 - Title: {title}
 - Pages: {page_count}
 
 Document Content:
-{text[:50000]}  # Limit to first 50k characters to avoid token limits
+{text[:50000]}
 
 Please provide a detailed analysis in the following JSON format:
 
 {{
     "summary": "A concise 2-3 sentence summary of the document's main content and purpose",
-    "extracted_data": {{
-        "key_entities": ["List of important entities, people, organizations mentioned"],
-        "dates": ["Important dates found in the document"],
-        "numbers": ["Significant numbers, statistics, or metrics"],
-        "topics": ["Main topics or themes covered"]
-    }},
     "classification": {{
-        "document_type": "Type of document (e.g., research paper, invoice, report, article, contract, etc.)",
+        "document_type": "Type of document (e.g., technical drawing, engineering drawing, architectural plan, research paper, invoice, report, etc.)",
         "industry": "Relevant industry or domain",
         "confidence": "high/medium/low confidence in classification"
     }},
+    "dimension": [
+        {{
+            "value": "extracted dimension value from drawing (e.g., '100mm', '5.5\"', '3.2m')",
+            "coordinate": {{
+                "x": {{
+                    "left_x": "left coordinate x of element",
+                    "right_x": "right coordinate x"
+                }},
+                "y": {{
+                    "lower_y": "lower coordinate y of element",
+                    "upper_y": "upper coordinate y"
+                }}
+            }}
+        }}
+    ],
+    "annotation": [
+        {{
+            "value": "extracted annotation text (e.g., notes, labels, callouts)",
+            "coordinate": {{
+                "x": {{
+                    "left_x": "left coordinate x",
+                    "right_x": "right coordinate x"
+                }},
+                "y": {{
+                    "lower_y": "lower coordinate y",
+                    "upper_y": "upper coordinate y"
+                }}
+            }}
+        }}
+    ],
+    "title_block": [
+        {{
+            "value": "title block information (e.g., drawing number, revision, date, author)",
+            "coordinate": {{
+                "x": {{
+                    "left_x": "left coordinate x",
+                    "right_x": "right coordinate x"
+                }},
+                "y": {{
+                    "lower_y": "lower coordinate y",
+                    "upper_y": "upper coordinate y"
+                }}
+            }}
+        }}
+    ],
+    "others": [
+        {{
+            "value": "other extracted information (e.g., general notes, legends, symbols)",
+            "coordinate": {{
+                "x": {{
+                    "left_x": "left coordinate x",
+                    "right_x": "right coordinate x"
+                }},
+                "y": {{
+                    "lower_y": "lower coordinate y",
+                    "upper_y": "upper coordinate y"
+                }}
+            }}
+        }}
+    ],
     "key_insights": [
-        "Important insight or finding 1",
-        "Important insight or finding 2",
-        "Important insight or finding 3"
+        "Important insight or finding about the document"
     ]
 }}
+
+IMPORTANT INSTRUCTIONS:
+- For technical drawings: Extract dimensions, annotations, title blocks with their coordinates
+- For non-technical documents: Set dimension, annotation, title_block, and others as empty arrays []
+- Coordinate values should be numeric strings or "unknown" if not determinable from text alone
+- If this is NOT a technical drawing, focus on extracting key information in the "others" section
+- Always include the summary, classification, and key_insights fields
 
 Respond ONLY with valid JSON. Do not include any other text or formatting."""
 
@@ -153,7 +212,7 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
             result = json.loads(response_text)
 
             # Validate structure
-            required_keys = ["summary", "extracted_data", "classification", "key_insights"]
+            required_keys = ["summary", "classification", "dimension", "annotation", "title_block", "others", "key_insights"]
             for key in required_keys:
                 if key not in result:
                     logger.warning(f"Missing key in response: {key}")
@@ -167,17 +226,15 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
             # Return structured error response
             return {
                 "summary": "Analysis completed but response parsing failed. The document was processed successfully.",
-                "extracted_data": {
-                    "key_entities": [],
-                    "dates": [],
-                    "numbers": [],
-                    "topics": ["Unable to extract structured data"]
-                },
                 "classification": {
                     "document_type": "Unknown",
                     "industry": "Unknown",
                     "confidence": "low"
                 },
+                "dimension": [],
+                "annotation": [],
+                "title_block": [],
+                "others": [],
                 "key_insights": ["Raw analysis available but structured parsing failed"]
             }
 
@@ -185,17 +242,15 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
         """Get default value for missing keys."""
         defaults = {
             "summary": "No summary available",
-            "extracted_data": {
-                "key_entities": [],
-                "dates": [],
-                "numbers": [],
-                "topics": []
-            },
             "classification": {
                 "document_type": "Unknown",
                 "industry": "Unknown",
                 "confidence": "low"
             },
+            "dimension": [],
+            "annotation": [],
+            "title_block": [],
+            "others": [],
             "key_insights": []
         }
         return defaults.get(key, None)
@@ -204,17 +259,15 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
         """Return empty analysis structure for empty documents."""
         return {
             "summary": "No text content found in the document. The document may be image-based or empty.",
-            "extracted_data": {
-                "key_entities": [],
-                "dates": [],
-                "numbers": [],
-                "topics": []
-            },
             "classification": {
                 "document_type": "Empty or image-only document",
                 "industry": "Unknown",
                 "confidence": "low"
             },
+            "dimension": [],
+            "annotation": [],
+            "title_block": [],
+            "others": [],
             "key_insights": ["Document contains no extractable text"]
         }
 
@@ -225,17 +278,61 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
 
         return {
             "summary": f"This is a {page_count}-page PDF document titled '{title}'. Gemini API analysis is not configured - this is mock data for testing the PDF viewer.",
-            "extracted_data": {
-                "key_entities": ["Sample Entity", "Example Organization"],
-                "dates": ["2024", "January 1, 2024"],
-                "numbers": ["100", "42"],
-                "topics": ["PDF Viewing", "Document Display", "Testing"]
-            },
             "classification": {
                 "document_type": "PDF Document (Mock Analysis)",
                 "industry": "General",
                 "confidence": "low"
             },
+            "dimension": [
+                {
+                    "value": "100mm",
+                    "coordinate": {
+                        "x": {"left_x": "50", "right_x": "150"},
+                        "y": {"lower_y": "200", "upper_y": "220"}
+                    }
+                },
+                {
+                    "value": "5.5\"",
+                    "coordinate": {
+                        "x": {"left_x": "300", "right_x": "400"},
+                        "y": {"lower_y": "150", "upper_y": "170"}
+                    }
+                }
+            ],
+            "annotation": [
+                {
+                    "value": "Sample annotation text",
+                    "coordinate": {
+                        "x": {"left_x": "100", "right_x": "200"},
+                        "y": {"lower_y": "300", "upper_y": "320"}
+                    }
+                }
+            ],
+            "title_block": [
+                {
+                    "value": "Drawing Number: MOCK-001",
+                    "coordinate": {
+                        "x": {"left_x": "500", "right_x": "700"},
+                        "y": {"lower_y": "50", "upper_y": "100"}
+                    }
+                },
+                {
+                    "value": "Revision: A",
+                    "coordinate": {
+                        "x": {"left_x": "500", "right_x": "700"},
+                        "y": {"lower_y": "100", "upper_y": "120"}
+                    }
+                }
+            ],
+            "others": [
+                {
+                    "value": "This is mock data - Gemini API not configured",
+                    "coordinate": {
+                        "x": {"left_x": "0", "right_x": "100"},
+                        "y": {"lower_y": "0", "upper_y": "20"}
+                    }
+                }
+            ],
             "key_insights": [
                 "Gemini API key is not configured",
                 "This is mock data for testing PDF display",

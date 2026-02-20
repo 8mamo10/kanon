@@ -9,11 +9,20 @@ export interface PDFMetadata {
   modification_date: string;
 }
 
-export interface ExtractedData {
-  key_entities: string[];
-  dates: string[];
-  numbers: string[];
-  topics: string[];
+export interface Coordinate {
+  x: {
+    left_x: string;
+    right_x: string;
+  };
+  y: {
+    lower_y: string;
+    upper_y: string;
+  };
+}
+
+export interface ExtractedElement {
+  value: string;
+  coordinate: Coordinate;
 }
 
 export interface Classification {
@@ -24,8 +33,11 @@ export interface Classification {
 
 export interface AnalysisResult {
   summary: string;
-  extracted_data: ExtractedData;
   classification: Classification;
+  dimension: ExtractedElement[];
+  annotation: ExtractedElement[];
+  title_block: ExtractedElement[];
+  others: ExtractedElement[];
   key_insights: string[];
 }
 

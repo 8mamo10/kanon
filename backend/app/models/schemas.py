@@ -15,12 +15,16 @@ class PDFMetadata(BaseModel):
     modification_date: str = ""
 
 
-class ExtractedData(BaseModel):
-    """Structured data extracted from PDF."""
-    key_entities: List[str] = Field(default_factory=list)
-    dates: List[str] = Field(default_factory=list)
-    numbers: List[str] = Field(default_factory=list)
-    topics: List[str] = Field(default_factory=list)
+class Coordinate(BaseModel):
+    """Coordinate information for extracted elements."""
+    x: Dict[str, str] = Field(default_factory=dict)  # {"left_x": "...", "right_x": "..."}
+    y: Dict[str, str] = Field(default_factory=dict)  # {"lower_y": "...", "upper_y": "..."}
+
+
+class ExtractedElement(BaseModel):
+    """Element extracted from PDF with coordinates."""
+    value: str
+    coordinate: Coordinate
 
 
 class Classification(BaseModel):
@@ -33,8 +37,11 @@ class Classification(BaseModel):
 class AnalysisResult(BaseModel):
     """Complete analysis result from Gemini."""
     summary: str
-    extracted_data: ExtractedData
     classification: Classification
+    dimension: List[ExtractedElement] = Field(default_factory=list)
+    annotation: List[ExtractedElement] = Field(default_factory=list)
+    title_block: List[ExtractedElement] = Field(default_factory=list)
+    others: List[ExtractedElement] = Field(default_factory=list)
     key_insights: List[str] = Field(default_factory=list)
 
 

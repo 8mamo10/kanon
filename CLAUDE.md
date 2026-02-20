@@ -4,11 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Kanon is a full-stack PDF analysis application consisting of:
+Kanon is a full-stack PDF analysis application optimized for technical drawings and engineering documents:
 - **Backend**: FastAPI (Python 3.11+) with PyMuPDF for PDF processing and Google Gemini API for AI analysis
 - **Frontend**: Next.js 14 (TypeScript) with react-pdf for PDF viewing
 
 The application works **with or without** a Gemini API key - when no key is configured, it returns mock analysis data to enable testing the PDF viewer functionality.
+
+**Analysis Format**: The system extracts structured data with coordinates for technical drawings:
+- **Dimensions**: Extracted dimension values with their positions (e.g., "100mm", "5.5\"")
+- **Annotations**: Text annotations and labels with coordinates
+- **Title Block**: Drawing metadata (drawing number, revision, date, author)
+- **Others**: General notes, legends, and other extracted information
+- All extracted elements include X/Y coordinates (left_x, right_x, lower_y, upper_y)
 
 ## Development Commands
 
@@ -158,11 +165,29 @@ All endpoints prefixed with `/api/v1`:
 
 ### Adding a New Analysis Feature
 
+The current format is optimized for technical drawings with coordinate-based extraction:
+
+**Current Structure**:
+```json
+{
+  "summary": "...",
+  "classification": {...},
+  "dimension": [{value: "...", coordinate: {...}}],
+  "annotation": [{value: "...", coordinate: {...}}],
+  "title_block": [{value: "...", coordinate: {...}}],
+  "others": [{value: "...", coordinate: {...}}],
+  "key_insights": [...]
+}
+```
+
+**To add new fields**:
 1. Update prompt in `backend/app/services/gemini_service.py::_build_analysis_prompt()`
 2. Update response parsing in `_parse_response()` to handle new fields
 3. Update Pydantic schemas in `backend/app/models/schemas.py`
 4. Update TypeScript types in `frontend/lib/types.ts`
 5. Update UI in `frontend/components/AnalysisResults.tsx`
+
+**Note**: For non-technical documents (reports, articles), Gemini returns empty arrays for dimension/annotation/title_block and uses the "others" array for general extracted information.
 
 ### Modifying PDF Processing
 
