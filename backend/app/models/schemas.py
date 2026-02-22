@@ -24,6 +24,7 @@ class Coordinate(BaseModel):
 class ExtractedElement(BaseModel):
     """Element extracted from PDF with coordinates."""
     value: str
+    value_en: Optional[str] = None  # English translation (for annotation/title_block)
     coordinate: Coordinate
 
 

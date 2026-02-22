@@ -23,23 +23,35 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
 
   // Combine all extracted elements into table rows
   const getTableRows = () => {
-    const rows: { category: string; value: string }[] = [];
+    const rows: { category: string; value: string; value_en: string }[] = [];
 
     if (analysis.dimension) {
       analysis.dimension.forEach(item => {
-        rows.push({ category: 'dimension', value: item.value });
+        rows.push({
+          category: 'dimension',
+          value: item.value,
+          value_en: '' // Empty for dimensions
+        });
       });
     }
 
     if (analysis.annotation) {
       analysis.annotation.forEach(item => {
-        rows.push({ category: 'annotation', value: item.value });
+        rows.push({
+          category: 'annotation',
+          value: item.value,
+          value_en: item.value_en || item.value // Fallback to original if no translation
+        });
       });
     }
 
     if (analysis.title_block) {
       analysis.title_block.forEach(item => {
-        rows.push({ category: 'title_block', value: item.value });
+        rows.push({
+          category: 'title_block',
+          value: item.value,
+          value_en: item.value_en || item.value // Fallback to original if no translation
+        });
       });
     }
 
@@ -105,9 +117,9 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
             <button
               onClick={() => {
                 const copyText = tableRows
-                  .map(row => `${row.category}\t${row.value}`)
+                  .map(row => `${row.category}\t${row.value}\t${row.value_en}`)
                   .join('\n');
-                copyToClipboard(`Category\tOriginal Text\n${copyText}`, 'table');
+                copyToClipboard(`Category\tOriginal Text\tTranslated Text\n${copyText}`, 'table');
               }}
               className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
             >
@@ -124,6 +136,9 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Original Text
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Translated Text
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -134,6 +149,9 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
                       {row.value}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                      {row.value_en}
                     </td>
                   </tr>
                 ))}

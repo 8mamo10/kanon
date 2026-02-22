@@ -133,7 +133,8 @@ Please provide a detailed analysis in the following JSON format:
     ],
     "annotation": [
         {{
-            "value": "extracted annotation text (e.g., notes, labels, callouts)",
+            "value": "extracted annotation text in original language (e.g., notes, labels, callouts)",
+            "value_en": "English translation of the annotation text",
             "coordinate": {{
                 "x": {{
                     "left_x": "left coordinate x",
@@ -148,7 +149,8 @@ Please provide a detailed analysis in the following JSON format:
     ],
     "title_block": [
         {{
-            "value": "title block information (e.g., drawing number, revision, date, author)",
+            "value": "title block information in original language (e.g., drawing number, revision, date, author)",
+            "value_en": "English translation of the title block text",
             "coordinate": {{
                 "x": {{
                     "left_x": "left coordinate x",
@@ -187,6 +189,9 @@ IMPORTANT INSTRUCTIONS:
 - Coordinate values should be numeric strings or "unknown" if not determinable from text alone
 - If this is NOT a technical drawing, focus on extracting key information in the "others" section
 - Always include the summary, classification, and key_insights fields
+- For annotation and title_block entries: If the original text is in Japanese, provide English translation in "value_en" field
+- For annotation and title_block entries: If the original text is already in English, set "value_en" to the same value
+- For dimension entries: Do NOT include "value_en" field (dimensions are numeric and don't need translation)
 
 Respond ONLY with valid JSON. Do not include any other text or formatting."""
 
@@ -301,7 +306,8 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
             ],
             "annotation": [
                 {
-                    "value": "Sample annotation text",
+                    "value": "サンプル注釈テキスト",
+                    "value_en": "Sample annotation text",
                     "coordinate": {
                         "x": {"left_x": "100", "right_x": "200"},
                         "y": {"lower_y": "300", "upper_y": "320"}
@@ -310,14 +316,16 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
             ],
             "title_block": [
                 {
-                    "value": "Drawing Number: MOCK-001",
+                    "value": "図面番号: MOCK-001",
+                    "value_en": "Drawing Number: MOCK-001",
                     "coordinate": {
                         "x": {"left_x": "500", "right_x": "700"},
                         "y": {"lower_y": "50", "upper_y": "100"}
                     }
                 },
                 {
-                    "value": "Revision: A",
+                    "value": "改訂: A",
+                    "value_en": "Revision: A",
                     "coordinate": {
                         "x": {"left_x": "500", "right_x": "700"},
                         "y": {"lower_y": "100", "upper_y": "120"}

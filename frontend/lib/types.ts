@@ -22,6 +22,7 @@ export interface Coordinate {
 
 export interface ExtractedElement {
   value: string;
+  value_en?: string;  // English translation (optional)
   coordinate: Coordinate;
 }
 
