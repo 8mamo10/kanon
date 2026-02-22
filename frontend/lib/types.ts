@@ -61,3 +61,17 @@ export interface DeleteResponse {
   file_id: string;
   timestamp: string;
 }
+
+export interface PageDimensions {
+  width: number;           // Rendered width in pixels
+  height: number;          // Rendered height in pixels
+  originalWidth: number;   // Original PDF width in points
+  originalHeight: number;  // Original PDF height in points
+}
+
+export interface ScreenCoordinates {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}

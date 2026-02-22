@@ -127,7 +127,11 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* PDF Viewer - Left Side */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden h-[calc(100vh-12rem)]">
-              <PDFViewer fileUrl={pdfUrl} filename={analysisData.filename} />
+              <PDFViewer
+                fileUrl={pdfUrl}
+                filename={analysisData.filename}
+                analysisData={analysisData.analysis}
+              />
             </div>
 
             {/* Analysis Results - Right Side */}

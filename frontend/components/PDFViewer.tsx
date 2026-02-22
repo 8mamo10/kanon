@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
+import TranslationOverlay from './TranslationOverlay';
+import type { AnalysisResult, PageDimensions } from '@/lib/types';
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -11,12 +13,15 @@ pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 interface PDFViewerProps {
   fileUrl: string;
   filename?: string;
+  analysisData?: AnalysisResult;
 }
 
-export default function PDFViewer({ fileUrl, filename }: PDFViewerProps) {
+export default function PDFViewer({ fileUrl, filename, analysisData }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
+  const [pageDimensions, setPageDimensions] = useState<PageDimensions | null>(null);
+  const [showOverlays, setShowOverlays] = useState<boolean>(true);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);
@@ -36,13 +41,46 @@ export default function PDFViewer({ fileUrl, filename }: PDFViewerProps) {
     setPageNumber((prev) => Math.min(prev + 1, numPages));
   };
 
+  const handlePageRenderSuccess = (page: any) => {
+    setPageDimensions({
+      width: page.width,
+      height: page.height,
+      originalWidth: page.originalWidth,
+      originalHeight: page.originalHeight
+    });
+  };
+
+  // Extract elements that should have translation overlays
+  const overlayElements = useMemo(() => {
+    if (!analysisData || !showOverlays) return [];
+    return [
+      ...(analysisData.annotation || []),
+      ...(analysisData.title_block || [])
+    ].filter(e => e.value_en && e.value_en.trim() !== '');
+  }, [analysisData, showOverlays]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-t-lg border-b border-gray-200 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-          {filename || 'PDF Document'}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+            {filename || 'PDF Document'}
+          </h3>
+          {analysisData && overlayElements.length > 0 && (
+            <button
+              onClick={() => setShowOverlays(!showOverlays)}
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                showOverlays
+                  ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                  : 'bg-gray-300 text-gray-700 hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500'
+              }`}
+              title={showOverlays ? 'Hide translation overlays' : 'Show translation overlays'}
+            >
+              {showOverlays ? 'Hide' : 'Show'} Translations
+            </button>
+          )}
+        </div>
       </div>
 
       {/* PDF Display */}
@@ -65,12 +103,21 @@ export default function PDFViewer({ fileUrl, filename }: PDFViewerProps) {
             }
             className="shadow-lg"
           >
-            <Page
-              pageNumber={pageNumber}
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-              className="border border-gray-300 dark:border-gray-700"
-            />
+            <div className="relative">
+              <Page
+                pageNumber={pageNumber}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                className="border border-gray-300 dark:border-gray-700"
+                onRenderSuccess={handlePageRenderSuccess}
+              />
+              {pageDimensions && showOverlays && overlayElements.length > 0 && (
+                <TranslationOverlay
+                  elements={overlayElements}
+                  pageDimensions={pageDimensions}
+                />
+              )}
+            </div>
           </Document>
         </div>
       </div>
