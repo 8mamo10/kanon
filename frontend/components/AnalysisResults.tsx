@@ -21,46 +21,32 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
     }
   };
 
-  const renderExtractedElements = (elements: ExtractedElement[], title: string, sectionKey: string) => {
-    if (!elements || elements.length === 0) return null;
+  // Combine all extracted elements into table rows
+  const getTableRows = () => {
+    const rows: { category: string; value: string }[] = [];
 
-    const copyText = elements.map(el =>
-      `${el.value}\nCoordinates: x(${el.coordinate.x.left_x}, ${el.coordinate.x.right_x}), y(${el.coordinate.y.lower_y}, ${el.coordinate.y.upper_y})`
-    ).join('\n\n');
+    if (analysis.dimension) {
+      analysis.dimension.forEach(item => {
+        rows.push({ category: 'dimension', value: item.value });
+      });
+    }
 
-    return (
-      <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {title}
-          </h3>
-          <button
-            onClick={() => copyToClipboard(copyText, sectionKey)}
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-          >
-            {copiedSection === sectionKey ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-        <div className="space-y-3">
-          {elements.map((element, index) => (
-            <div key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 dark:bg-gray-900/50 rounded">
-              <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-                {element.value}
-              </p>
-              <div className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                <span className="inline-block mr-4">
-                  X: [{element.coordinate.x.left_x}, {element.coordinate.x.right_x}]
-                </span>
-                <span className="inline-block">
-                  Y: [{element.coordinate.y.lower_y}, {element.coordinate.y.upper_y}]
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-    );
+    if (analysis.annotation) {
+      analysis.annotation.forEach(item => {
+        rows.push({ category: 'annotation', value: item.value });
+      });
+    }
+
+    if (analysis.title_block) {
+      analysis.title_block.forEach(item => {
+        rows.push({ category: 'title_block', value: item.value });
+      });
+    }
+
+    return rows;
   };
+
+  const tableRows = getTableRows();
 
   return (
     <div className="space-y-6">
@@ -109,17 +95,53 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
         </div>
       </section>
 
-      {/* Dimensions Section */}
-      {renderExtractedElements(analysis.dimension, 'Dimensions', 'dimensions')}
-
-      {/* Annotations Section */}
-      {renderExtractedElements(analysis.annotation, 'Annotations', 'annotations')}
-
-      {/* Title Block Section */}
-      {renderExtractedElements(analysis.title_block, 'Title Block', 'title_block')}
-
-      {/* Others Section */}
-      {renderExtractedElements(analysis.others, 'Other Information', 'others')}
+      {/* Extracted Data Table */}
+      {tableRows.length > 0 && (
+        <section className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          <div className="flex items-start justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Extracted Data
+            </h3>
+            <button
+              onClick={() => {
+                const copyText = tableRows
+                  .map(row => `${row.category}\t${row.value}`)
+                  .join('\n');
+                copyToClipboard(`Category\tOriginal Text\n${copyText}`, 'table');
+              }}
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            >
+              {copiedSection === 'table' ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Original Text
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {tableRows.map((row, index) => (
+                  <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-900/50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {row.category}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                      {row.value}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Key Insights Section */}
       {analysis.key_insights && analysis.key_insights.length > 0 && (
