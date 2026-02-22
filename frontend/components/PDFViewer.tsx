@@ -52,12 +52,12 @@ export default function PDFViewer({ fileUrl, filename, analysisData }: PDFViewer
 
   // Extract elements that should have translation overlays
   const overlayElements = useMemo(() => {
-    if (!analysisData || !showOverlays) return [];
+    if (!analysisData) return [];
     return [
       ...(analysisData.annotation || []),
       ...(analysisData.title_block || [])
     ].filter(e => e.value_en && e.value_en.trim() !== '');
-  }, [analysisData, showOverlays]);
+  }, [analysisData]);
 
   return (
     <div className="flex flex-col h-full">
