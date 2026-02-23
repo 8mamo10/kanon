@@ -1,8 +1,10 @@
 import google.generativeai as genai
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import logging
 import json
 import time
+from PIL import Image
+import io
 
 from app.config import settings
 
@@ -39,6 +41,7 @@ class GeminiService:
         self,
         text: str,
         metadata: Dict[str, Any],
+        images: Optional[List[bytes]] = None,
         max_retries: int = 3
     ) -> Dict[str, Any]:
         """
@@ -47,6 +50,7 @@ class GeminiService:
         Args:
             text: Extracted text from PDF
             metadata: PDF metadata (page count, title, etc.)
+            images: Optional list of PDF page images (PNG bytes) for visual analysis
             max_retries: Number of retry attempts for API calls
 
         Returns:
@@ -75,7 +79,25 @@ class GeminiService:
         for attempt in range(max_retries):
             try:
                 logger.info(f"Starting Gemini analysis (attempt {attempt + 1}/{max_retries})")
-                response = self.model.generate_content(prompt)
+
+                # Prepare content for Gemini (text + images for multimodal analysis)
+                content_parts = [prompt]
+
+                if images and len(images) > 0:
+                    logger.info(f"Including {len(images)} page images for visual analysis")
+                    for i, img_bytes in enumerate(images):
+                        try:
+                            # Convert bytes to PIL Image
+                            img = Image.open(io.BytesIO(img_bytes))
+                            content_parts.append(img)
+                            logger.info(f"  Image {i+1}: {img.size[0]}x{img.size[1]} pixels")
+                        except Exception as e:
+                            logger.warning(f"Failed to process image {i}: {str(e)}")
+                else:
+                    logger.info("No images provided - using text-only analysis")
+
+                # Send to Gemini (multimodal if images provided)
+                response = self.model.generate_content(content_parts)
 
                 if not response or not response.text:
                     raise GeminiServiceError("Empty response from Gemini API")
@@ -123,7 +145,18 @@ Document Metadata:
 Document Content:
 {text[:50000]}
 
-Please provide a detailed analysis in the following JSON format:
+Help me find and extract all values in this drawing, and classify extracted values as: dimension, annotation, title block, others. Extract and list all values, even if they seem to duplicate for easier verification.
+
+For each value, include its coordinate on the image using NORMALIZED COORDINATES where:
+- (0,0) is the TOP-LEFT corner
+- (1,1) is the BOTTOM-RIGHT corner
+- All coordinate values must be in the 0-1 range
+- upper_y is the TOP edge (smaller Y value)
+- lower_y is the BOTTOM edge (larger Y value)
+
+Please don't include results from previous query: only focus on current uploaded drawing.
+
+Return the result in this JSON format:
 
 {{
     "summary": "A concise 2-3 sentence summary of the document's main content and purpose",
@@ -134,62 +167,62 @@ Please provide a detailed analysis in the following JSON format:
     }},
     "dimension": [
         {{
-            "value": "extracted dimension value from drawing (e.g., '100mm', '5.5\"', '3.2m')",
+            "value": "extracted value from drawing",
             "coordinate": {{
                 "x": {{
-                    "left_x": "left coordinate x of element",
-                    "right_x": "right coordinate x"
+                    "left_x": "left coordinate x (0-1 range)",
+                    "right_x": "right coordinate x (0-1 range)"
                 }},
                 "y": {{
-                    "lower_y": "lower coordinate y of element",
-                    "upper_y": "upper coordinate y"
+                    "lower_y": "lower coordinate y (0-1 range, bottom edge)",
+                    "upper_y": "upper coordinate y (0-1 range, top edge)"
                 }}
             }}
         }}
     ],
     "annotation": [
         {{
-            "value": "extracted annotation text in original language (e.g., notes, labels, callouts)",
+            "value": "extracted annotation text in original language",
             "value_en": "English translation of the annotation text",
             "coordinate": {{
                 "x": {{
-                    "left_x": "left coordinate x",
-                    "right_x": "right coordinate x"
+                    "left_x": "left coordinate x (0-1 range)",
+                    "right_x": "right coordinate x (0-1 range)"
                 }},
                 "y": {{
-                    "lower_y": "lower coordinate y",
-                    "upper_y": "upper coordinate y"
+                    "lower_y": "lower coordinate y (0-1 range, bottom edge)",
+                    "upper_y": "upper coordinate y (0-1 range, top edge)"
                 }}
             }}
         }}
     ],
     "title_block": [
         {{
-            "value": "title block information in original language (e.g., drawing number, revision, date, author)",
+            "value": "title block information in original language",
             "value_en": "English translation of the title block text",
             "coordinate": {{
                 "x": {{
-                    "left_x": "left coordinate x",
-                    "right_x": "right coordinate x"
+                    "left_x": "left coordinate x (0-1 range)",
+                    "right_x": "right coordinate x (0-1 range)"
                 }},
                 "y": {{
-                    "lower_y": "lower coordinate y",
-                    "upper_y": "upper coordinate y"
+                    "lower_y": "lower coordinate y (0-1 range, bottom edge)",
+                    "upper_y": "upper coordinate y (0-1 range, top edge)"
                 }}
             }}
         }}
     ],
     "others": [
         {{
-            "value": "other extracted information (e.g., general notes, legends, symbols)",
+            "value": "other extracted information",
             "coordinate": {{
                 "x": {{
-                    "left_x": "left coordinate x",
-                    "right_x": "right coordinate x"
+                    "left_x": "left coordinate x (0-1 range)",
+                    "right_x": "right coordinate x (0-1 range)"
                 }},
                 "y": {{
-                    "lower_y": "lower coordinate y",
-                    "upper_y": "upper coordinate y"
+                    "lower_y": "lower coordinate y (0-1 range, bottom edge)",
+                    "upper_y": "upper coordinate y (0-1 range, top edge)"
                 }}
             }}
         }}
@@ -199,15 +232,20 @@ Please provide a detailed analysis in the following JSON format:
     ]
 }}
 
-IMPORTANT INSTRUCTIONS:
-- For technical drawings: Extract dimensions, annotations, title blocks with their coordinates
-- For non-technical documents: Set dimension, annotation, title_block, and others as empty arrays []
-- Coordinate values should be numeric strings or "unknown" if not determinable from text alone
-- If this is NOT a technical drawing, focus on extracting key information in the "others" section
+CRITICAL COORDINATE REQUIREMENTS:
+- All coordinates MUST be normalized values between 0 and 1
+- (0,0) = top-left corner, (1,1) = bottom-right corner
+- For Y coordinates: upper_y < lower_y (because upper is top, lower is bottom)
+- Example: An element at the top-left might have upper_y=0.1, lower_y=0.15
+- Extract ALL values including duplicates for verification
+- Focus ONLY on the current drawing, not previous queries
+
+CONTENT EXTRACTION INSTRUCTIONS:
+- For technical drawings: Extract dimensions, annotations, title blocks with their precise coordinates
+- For non-technical documents: Set dimension, annotation, title_block as empty arrays []
 - Always include the summary, classification, and key_insights fields
-- For annotation and title_block entries: If the original text is in Japanese, provide English translation in "value_en" field
-- For annotation and title_block entries: If the original text is already in English, set "value_en" to the same value
-- For dimension entries: Do NOT include "value_en" field (dimensions are numeric and don't need translation)
+- For annotation and title_block: Provide English translation in "value_en" field
+- For dimension entries: Do NOT include "value_en" field (dimensions don't need translation)
 
 Respond ONLY with valid JSON. Do not include any other text or formatting."""
 
@@ -296,6 +334,7 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
         """Log detailed coordinate information for debugging overlays."""
         logger.info("=" * 80)
         logger.info("COORDINATE DETAILS FOR OVERLAY DEBUGGING:")
+        logger.info("Normalized coordinates: (0,0) = top-left, (1,1) = bottom-right")
         logger.info("=" * 80)
 
         # Log annotations
@@ -347,7 +386,7 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
         title = metadata.get("title", "PDF Document")
 
         mock_result = {
-            "summary": f"This is a {page_count}-page PDF document titled '{title}'. Gemini API analysis is not configured - this is mock data for testing the PDF viewer.",
+            "summary": f"This is a {page_count}-page PDF document titled '{title}'. Gemini API analysis is not configured - this is mock data for testing the PDF viewer with normalized coordinates.",
             "classification": {
                 "document_type": "PDF Document (Mock Analysis)",
                 "industry": "General",
@@ -357,15 +396,15 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
                 {
                     "value": "100mm",
                     "coordinate": {
-                        "x": {"left_x": "50", "right_x": "150"},
-                        "y": {"lower_y": "200", "upper_y": "220"}
+                        "x": {"left_x": "0.1", "right_x": "0.3"},
+                        "y": {"lower_y": "0.35", "upper_y": "0.30"}
                     }
                 },
                 {
                     "value": "5.5\"",
                     "coordinate": {
-                        "x": {"left_x": "300", "right_x": "400"},
-                        "y": {"lower_y": "150", "upper_y": "170"}
+                        "x": {"left_x": "0.5", "right_x": "0.7"},
+                        "y": {"lower_y": "0.25", "upper_y": "0.20"}
                     }
                 }
             ],
@@ -374,8 +413,16 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
                     "value": "サンプル注釈テキスト",
                     "value_en": "Sample annotation text",
                     "coordinate": {
-                        "x": {"left_x": "100", "right_x": "200"},
-                        "y": {"lower_y": "300", "upper_y": "320"}
+                        "x": {"left_x": "0.15", "right_x": "0.35"},
+                        "y": {"lower_y": "0.45", "upper_y": "0.40"}
+                    }
+                },
+                {
+                    "value": "テスト注記",
+                    "value_en": "Test annotation",
+                    "coordinate": {
+                        "x": {"left_x": "0.6", "right_x": "0.8"},
+                        "y": {"lower_y": "0.55", "upper_y": "0.50"}
                     }
                 }
             ],
@@ -384,16 +431,16 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
                     "value": "図面番号: MOCK-001",
                     "value_en": "Drawing Number: MOCK-001",
                     "coordinate": {
-                        "x": {"left_x": "500", "right_x": "700"},
-                        "y": {"lower_y": "50", "upper_y": "100"}
+                        "x": {"left_x": "0.7", "right_x": "0.95"},
+                        "y": {"lower_y": "0.95", "upper_y": "0.90"}
                     }
                 },
                 {
                     "value": "改訂: A",
                     "value_en": "Revision: A",
                     "coordinate": {
-                        "x": {"left_x": "500", "right_x": "700"},
-                        "y": {"lower_y": "100", "upper_y": "120"}
+                        "x": {"left_x": "0.7", "right_x": "0.85"},
+                        "y": {"lower_y": "0.90", "upper_y": "0.87"}
                     }
                 }
             ],
@@ -401,21 +448,22 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
                 {
                     "value": "This is mock data - Gemini API not configured",
                     "coordinate": {
-                        "x": {"left_x": "0", "right_x": "100"},
-                        "y": {"lower_y": "0", "upper_y": "20"}
+                        "x": {"left_x": "0.05", "right_x": "0.45"},
+                        "y": {"lower_y": "0.08", "upper_y": "0.05"}
                     }
                 }
             ],
             "key_insights": [
                 "Gemini API key is not configured",
                 "This is mock data for testing PDF display",
+                "Using normalized coordinates (0-1 range) where (0,0) = top-left",
                 "Configure GEMINI_API_KEY in .env to enable real analysis"
             ]
         }
 
         # Log mock data for debugging
         logger.info("=" * 80)
-        logger.info("RETURNING MOCK ANALYSIS DATA:")
+        logger.info("RETURNING MOCK ANALYSIS DATA (Normalized Coordinates):")
         logger.info(json.dumps(mock_result, indent=2, ensure_ascii=False))
         logger.info("=" * 80)
         self._log_coordinate_details(mock_result)

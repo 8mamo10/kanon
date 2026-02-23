@@ -100,9 +100,17 @@ async def analyze_pdf(file: UploadFile = File(...)):
                 detail=f"PDF processing error: {str(e)}"
             )
 
-        # Analyze with Gemini
+        # Extract page images for visual analysis
         try:
-            analysis = gemini_service.analyze_comprehensive(text, metadata_dict)
+            images = pdf_processor.get_page_images(str(file_path), max_pages=5)
+            logger.info(f"Extracted {len(images)} page images for visual analysis")
+        except PDFProcessorError as e:
+            logger.warning(f"Failed to extract page images: {str(e)}")
+            images = None
+
+        # Analyze with Gemini (pass images for visual coordinate extraction)
+        try:
+            analysis = gemini_service.analyze_comprehensive(text, metadata_dict, images)
         except GeminiServiceError as e:
             logger.error(f"Gemini analysis failed: {str(e)}")
             raise HTTPException(

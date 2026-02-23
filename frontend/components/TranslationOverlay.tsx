@@ -8,45 +8,38 @@ interface TranslationOverlayProps {
 }
 
 /**
- * Converts PDF coordinates (bottom-origin) to screen coordinates (top-origin)
+ * Converts normalized coordinates (0-1 range) to screen coordinates (pixels)
  *
- * PDF Coordinate System: (0,0) = bottom-left
- * Screen Coordinate System: (0,0) = top-left
+ * Normalized Coordinate System: (0,0) = top-left, (1,1) = bottom-right
+ * Screen Coordinate System: (0,0) = top-left (same origin)
  *
- * @param pdfCoord - The PDF coordinate from analysis result
+ * @param coordinate - The normalized coordinate from analysis result
  * @param pageDimensions - The rendered page dimensions
  * @returns Screen coordinates or null if invalid
  */
-function convertPDFToScreenCoordinates(
-  pdfCoord: { x: { left_x: string; right_x: string }; y: { lower_y: string; upper_y: string } },
+function convertNormalizedToScreenCoordinates(
+  coordinate: { x: { left_x: string; right_x: string }; y: { lower_y: string; upper_y: string } },
   pageDimensions: PageDimensions
 ): ScreenCoordinates | null {
-  // Calculate scale factors
-  const scaleX = pageDimensions.width / pageDimensions.originalWidth;
-  const scaleY = pageDimensions.height / pageDimensions.originalHeight;
-
-  // Parse coordinates (handle "unknown" case)
-  const leftX = parseFloat(pdfCoord.x.left_x);
-  const rightX = parseFloat(pdfCoord.x.right_x);
-  const lowerY = parseFloat(pdfCoord.y.lower_y);
-  const upperY = parseFloat(pdfCoord.y.upper_y);
+  // Parse normalized coordinates (0-1 range)
+  const leftX = parseFloat(coordinate.x.left_x);
+  const rightX = parseFloat(coordinate.x.right_x);
+  const lowerY = parseFloat(coordinate.y.lower_y);
+  const upperY = parseFloat(coordinate.y.upper_y);
 
   // Validate coordinates
   if (isNaN(leftX) || isNaN(rightX) || isNaN(lowerY) || isNaN(upperY)) {
     return null; // Skip invalid coordinates
   }
 
-  // Convert X (same direction, just scale)
-  const screenLeft = leftX * scaleX;
-  const screenWidth = (rightX - leftX) * scaleX;
+  // Convert normalized (0-1) to screen pixels
+  // No Y-axis flip needed since normalized coords already use top-origin
+  const screenLeft = leftX * pageDimensions.width;
+  const screenWidth = (rightX - leftX) * pageDimensions.width;
+  const screenTop = upperY * pageDimensions.height;  // upperY is top edge
+  const screenHeight = (lowerY - upperY) * pageDimensions.height;
 
-  // Convert Y (FLIP vertical axis)
-  // In PDF: (0,0) is bottom-left, upperY > lowerY
-  // In Screen: (0,0) is top-left, so we need to flip
-  const screenTop = (pageDimensions.originalHeight - upperY) * scaleY;
-  const screenHeight = (upperY - lowerY) * scaleY;
-
-  // Check for out-of-bounds
+  // Check for out-of-bounds (warn but still render)
   if (
     screenLeft < 0 ||
     screenTop < 0 ||
@@ -57,9 +50,8 @@ function convertPDFToScreenCoordinates(
       screenLeft,
       screenTop,
       pageDimensions,
-      pdfCoord
+      normalizedCoord: coordinate
     });
-    // Still render it - might be partially visible
   }
 
   // Ensure minimum dimensions for visibility
@@ -79,15 +71,11 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
     return null;
   }
 
-  // Log page dimensions and coordinate conversion for debugging
+  // Log page dimensions for debugging
   console.log('='.repeat(80));
   console.log('TRANSLATION OVERLAY - PAGE DIMENSIONS:');
   console.log('  Rendered size:', pageDimensions.width, 'x', pageDimensions.height, 'px');
-  console.log('  Original PDF size:', pageDimensions.originalWidth, 'x', pageDimensions.originalHeight, 'pts');
-  console.log('  Scale factors:', {
-    x: pageDimensions.width / pageDimensions.originalWidth,
-    y: pageDimensions.height / pageDimensions.originalHeight
-  });
+  console.log('  Using normalized coordinates: (0,0) = top-left, (1,1) = bottom-right');
   console.log('='.repeat(80));
 
   return (
@@ -105,7 +93,7 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
         }
 
         // Convert coordinates
-        const screenCoords = convertPDFToScreenCoordinates(
+        const screenCoords = convertNormalizedToScreenCoordinates(
           element.coordinate,
           pageDimensions
         );
@@ -120,9 +108,9 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
         console.log(`Overlay [${index}]:`, {
           value: element.value,
           translation: element.value_en,
-          pdfCoords: {
+          normalizedCoords: {
             x: `${element.coordinate.x.left_x} - ${element.coordinate.x.right_x}`,
-            y: `${element.coordinate.y.lower_y} - ${element.coordinate.y.upper_y}`
+            y: `${element.coordinate.y.upper_y} (top) - ${element.coordinate.y.lower_y} (bottom)`
           },
           screenCoords: {
             left: screenCoords.left.toFixed(2),
