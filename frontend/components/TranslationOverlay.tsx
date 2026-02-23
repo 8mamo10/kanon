@@ -79,6 +79,17 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
     return null;
   }
 
+  // Log page dimensions and coordinate conversion for debugging
+  console.log('='.repeat(80));
+  console.log('TRANSLATION OVERLAY - PAGE DIMENSIONS:');
+  console.log('  Rendered size:', pageDimensions.width, 'x', pageDimensions.height, 'px');
+  console.log('  Original PDF size:', pageDimensions.originalWidth, 'x', pageDimensions.originalHeight, 'pts');
+  console.log('  Scale factors:', {
+    x: pageDimensions.width / pageDimensions.originalWidth,
+    y: pageDimensions.height / pageDimensions.originalHeight
+  });
+  console.log('='.repeat(80));
+
   return (
     <div
       className="absolute top-0 left-0 pointer-events-none"
@@ -104,6 +115,22 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
           console.warn('Skipping element with invalid coordinates:', element);
           return null;
         }
+
+        // Log coordinate conversion details
+        console.log(`Overlay [${index}]:`, {
+          value: element.value,
+          translation: element.value_en,
+          pdfCoords: {
+            x: `${element.coordinate.x.left_x} - ${element.coordinate.x.right_x}`,
+            y: `${element.coordinate.y.lower_y} - ${element.coordinate.y.upper_y}`
+          },
+          screenCoords: {
+            left: screenCoords.left.toFixed(2),
+            top: screenCoords.top.toFixed(2),
+            width: screenCoords.width.toFixed(2),
+            height: screenCoords.height.toFixed(2)
+          }
+        });
 
         return (
           <div

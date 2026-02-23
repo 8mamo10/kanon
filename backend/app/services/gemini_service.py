@@ -80,7 +80,23 @@ class GeminiService:
                 if not response or not response.text:
                     raise GeminiServiceError("Empty response from Gemini API")
 
+                # Log the raw response for debugging
+                logger.info("=" * 80)
+                logger.info("RAW GEMINI API RESPONSE:")
+                logger.info(response.text)
+                logger.info("=" * 80)
+
                 analysis_result = self._parse_response(response.text)
+
+                # Log parsed analysis result with coordinates
+                logger.info("=" * 80)
+                logger.info("PARSED ANALYSIS RESULT:")
+                logger.info(json.dumps(analysis_result, indent=2, ensure_ascii=False))
+                logger.info("=" * 80)
+
+                # Log coordinate details for overlay debugging
+                self._log_coordinate_details(analysis_result)
+
                 logger.info("Successfully completed Gemini analysis")
                 return analysis_result
 
@@ -276,12 +292,61 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
             "key_insights": ["Document contains no extractable text"]
         }
 
+    def _log_coordinate_details(self, analysis_result: Dict[str, Any]) -> None:
+        """Log detailed coordinate information for debugging overlays."""
+        logger.info("=" * 80)
+        logger.info("COORDINATE DETAILS FOR OVERLAY DEBUGGING:")
+        logger.info("=" * 80)
+
+        # Log annotations
+        annotations = analysis_result.get("annotation", [])
+        if annotations:
+            logger.info(f"\nANNOTATIONS ({len(annotations)} items):")
+            for i, item in enumerate(annotations):
+                logger.info(f"\n  [{i}] Value: {item.get('value', 'N/A')}")
+                logger.info(f"      Translation: {item.get('value_en', 'N/A')}")
+                coord = item.get("coordinate", {})
+                logger.info(f"      Coordinates:")
+                logger.info(f"        X: left={coord.get('x', {}).get('left_x', 'N/A')}, right={coord.get('x', {}).get('right_x', 'N/A')}")
+                logger.info(f"        Y: lower={coord.get('y', {}).get('lower_y', 'N/A')}, upper={coord.get('y', {}).get('upper_y', 'N/A')}")
+        else:
+            logger.info("\nANNOTATIONS: None")
+
+        # Log title blocks
+        title_blocks = analysis_result.get("title_block", [])
+        if title_blocks:
+            logger.info(f"\nTITLE BLOCKS ({len(title_blocks)} items):")
+            for i, item in enumerate(title_blocks):
+                logger.info(f"\n  [{i}] Value: {item.get('value', 'N/A')}")
+                logger.info(f"      Translation: {item.get('value_en', 'N/A')}")
+                coord = item.get("coordinate", {})
+                logger.info(f"      Coordinates:")
+                logger.info(f"        X: left={coord.get('x', {}).get('left_x', 'N/A')}, right={coord.get('x', {}).get('right_x', 'N/A')}")
+                logger.info(f"        Y: lower={coord.get('y', {}).get('lower_y', 'N/A')}, upper={coord.get('y', {}).get('upper_y', 'N/A')}")
+        else:
+            logger.info("\nTITLE BLOCKS: None")
+
+        # Log dimensions (no translation)
+        dimensions = analysis_result.get("dimension", [])
+        if dimensions:
+            logger.info(f"\nDIMENSIONS ({len(dimensions)} items):")
+            for i, item in enumerate(dimensions):
+                logger.info(f"\n  [{i}] Value: {item.get('value', 'N/A')}")
+                coord = item.get("coordinate", {})
+                logger.info(f"      Coordinates:")
+                logger.info(f"        X: left={coord.get('x', {}).get('left_x', 'N/A')}, right={coord.get('x', {}).get('right_x', 'N/A')}")
+                logger.info(f"        Y: lower={coord.get('y', {}).get('lower_y', 'N/A')}, upper={coord.get('y', {}).get('upper_y', 'N/A')}")
+        else:
+            logger.info("\nDIMENSIONS: None")
+
+        logger.info("\n" + "=" * 80)
+
     def _get_mock_analysis(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Return mock analysis data when Gemini is not enabled."""
         page_count = metadata.get("page_count", 0)
         title = metadata.get("title", "PDF Document")
 
-        return {
+        mock_result = {
             "summary": f"This is a {page_count}-page PDF document titled '{title}'. Gemini API analysis is not configured - this is mock data for testing the PDF viewer.",
             "classification": {
                 "document_type": "PDF Document (Mock Analysis)",
@@ -347,6 +412,15 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
                 "Configure GEMINI_API_KEY in .env to enable real analysis"
             ]
         }
+
+        # Log mock data for debugging
+        logger.info("=" * 80)
+        logger.info("RETURNING MOCK ANALYSIS DATA:")
+        logger.info(json.dumps(mock_result, indent=2, ensure_ascii=False))
+        logger.info("=" * 80)
+        self._log_coordinate_details(mock_result)
+
+        return mock_result
 
     def check_connection(self) -> bool:
         """
