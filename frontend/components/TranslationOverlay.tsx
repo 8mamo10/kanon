@@ -12,14 +12,24 @@ interface TranslationOverlayProps {
  * Convert mm values to inches (1 inch = 25.4 mm)
  */
 function convertMmToInches(value: string): string | null {
-  // Parse the value to extract number and unit
-  const match = value.match(/^([\d.]+)\s*mm$/i);
-
-  if (!match) {
-    return null; // Not a mm value
+  // Skip thickness notations (e.g., "t4.5") and complex dimensions (e.g., "105x155x4.5")
+  if (value.toLowerCase().startsWith('t') || value.includes('x')) {
+    return null;
   }
 
-  const mmValue = parseFloat(match[1]);
+  // Try to parse the value
+  // Format 1: Plain number (e.g., "100") - assume mm for technical drawings
+  // Format 2: Number with mm suffix (e.g., "100mm", "25.4 mm")
+  let mmValue: number;
+
+  // Check if it has "mm" suffix
+  const mmMatch = value.match(/^([\d.]+)\s*mm$/i);
+  if (mmMatch) {
+    mmValue = parseFloat(mmMatch[1]);
+  } else {
+    // Try to parse as plain number (assume mm)
+    mmValue = parseFloat(value);
+  }
 
   if (isNaN(mmValue)) {
     return null;
