@@ -51,12 +51,18 @@ export default function PDFViewer({ fileUrl, filename, analysisData }: PDFViewer
   };
 
   // Extract elements that should have translation overlays
-  const overlayElements = useMemo(() => {
+  const translationElements = useMemo(() => {
     if (!analysisData) return [];
     return [
       ...(analysisData.annotation || []),
       ...(analysisData.title_block || [])
     ].filter(e => e.value_en && e.value_en.trim() !== '');
+  }, [analysisData]);
+
+  // Extract dimension elements for unit conversion overlays
+  const dimensionElements = useMemo(() => {
+    if (!analysisData) return [];
+    return analysisData.dimension || [];
   }, [analysisData]);
 
   return (
@@ -67,7 +73,7 @@ export default function PDFViewer({ fileUrl, filename, analysisData }: PDFViewer
           <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
             {filename || 'PDF Document'}
           </h3>
-          {analysisData && overlayElements.length > 0 && (
+          {analysisData && (translationElements.length > 0 || dimensionElements.length > 0) && (
             <button
               onClick={() => setShowOverlays(!showOverlays)}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
@@ -75,9 +81,9 @@ export default function PDFViewer({ fileUrl, filename, analysisData }: PDFViewer
                   ? 'bg-yellow-500 text-white hover:bg-yellow-600'
                   : 'bg-gray-300 text-gray-700 hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500'
               }`}
-              title={showOverlays ? 'Hide translation overlays' : 'Show translation overlays'}
+              title={showOverlays ? 'Hide overlays' : 'Show overlays'}
             >
-              {showOverlays ? 'Hide' : 'Show'} Translations
+              {showOverlays ? 'Hide' : 'Show'} Overlays
             </button>
           )}
         </div>
@@ -111,11 +117,23 @@ export default function PDFViewer({ fileUrl, filename, analysisData }: PDFViewer
                 className="border border-gray-300 dark:border-gray-700"
                 onRenderSuccess={handlePageRenderSuccess}
               />
-              {pageDimensions && showOverlays && overlayElements.length > 0 && (
-                <TranslationOverlay
-                  elements={overlayElements}
-                  pageDimensions={pageDimensions}
-                />
+              {pageDimensions && showOverlays && (
+                <>
+                  {translationElements.length > 0 && (
+                    <TranslationOverlay
+                      elements={translationElements}
+                      pageDimensions={pageDimensions}
+                      elementType="translation"
+                    />
+                  )}
+                  {dimensionElements.length > 0 && (
+                    <TranslationOverlay
+                      elements={dimensionElements}
+                      pageDimensions={pageDimensions}
+                      elementType="dimension"
+                    />
+                  )}
+                </>
               )}
             </div>
           </Document>

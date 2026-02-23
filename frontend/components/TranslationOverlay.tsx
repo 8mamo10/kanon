@@ -5,6 +5,31 @@ import type { ExtractedElement, PageDimensions, ScreenCoordinates } from '@/lib/
 interface TranslationOverlayProps {
   elements: ExtractedElement[];
   pageDimensions: PageDimensions;
+  elementType?: 'translation' | 'dimension';
+}
+
+/**
+ * Convert mm values to inches (1 inch = 25.4 mm)
+ */
+function convertMmToInches(value: string): string | null {
+  // Parse the value to extract number and unit
+  const match = value.match(/^([\d.]+)\s*mm$/i);
+
+  if (!match) {
+    return null; // Not a mm value
+  }
+
+  const mmValue = parseFloat(match[1]);
+
+  if (isNaN(mmValue)) {
+    return null;
+  }
+
+  // Convert mm to inches: inches = mm / 25.4
+  const inches = mmValue / 25.4;
+
+  // Format to 2 decimal places with inch symbol
+  return `${inches.toFixed(2)}"`;
 }
 
 /**
@@ -66,14 +91,14 @@ function convertNormalizedToScreenCoordinates(
   };
 }
 
-export default function TranslationOverlay({ elements, pageDimensions }: TranslationOverlayProps) {
+export default function TranslationOverlay({ elements, pageDimensions, elementType = 'translation' }: TranslationOverlayProps) {
   if (!elements || elements.length === 0) {
     return null;
   }
 
   // Log page dimensions for debugging
   console.log('='.repeat(80));
-  console.log('TRANSLATION OVERLAY - PAGE DIMENSIONS:');
+  console.log(`${elementType.toUpperCase()} OVERLAY - PAGE DIMENSIONS:`);
   console.log('  Rendered size:', pageDimensions.width, 'x', pageDimensions.height, 'px');
   console.log('  Using normalized coordinates: (0,0) = top-left, (1,1) = bottom-right');
   console.log('='.repeat(80));
@@ -87,8 +112,19 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
       }}
     >
       {elements.map((element, index) => {
-        // Skip elements without translations
-        if (!element.value_en || element.value_en.trim() === '') {
+        // Determine what to display based on element type
+        let displayText: string | null = null;
+
+        if (elementType === 'dimension') {
+          // For dimensions, show unit conversion
+          displayText = convertMmToInches(element.value);
+        } else {
+          // For translations, show value_en
+          displayText = element.value_en || null;
+        }
+
+        // Skip elements without display text
+        if (!displayText || displayText.trim() === '') {
           return null;
         }
 
@@ -105,9 +141,9 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
         }
 
         // Log coordinate conversion details
-        console.log(`Overlay [${index}]:`, {
+        console.log(`${elementType} Overlay [${index}]:`, {
           value: element.value,
-          translation: element.value_en,
+          displayText: displayText,
           normalizedCoords: {
             x: `${element.coordinate.x.left_x} - ${element.coordinate.x.right_x}`,
             y: `${element.coordinate.y.upper_y} (top) - ${element.coordinate.y.lower_y} (bottom)`
@@ -120,9 +156,13 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
           }
         });
 
+        const tooltipText = elementType === 'dimension'
+          ? `Original: ${element.value}\nConverted: ${displayText}`
+          : `Original: ${element.value}\nTranslation: ${displayText}`;
+
         return (
           <div
-            key={`overlay-${index}`}
+            key={`overlay-${elementType}-${index}`}
             className="absolute bg-yellow-200/70 border border-yellow-400 text-xs text-gray-900 p-1 overflow-hidden pointer-events-auto"
             style={{
               left: `${screenCoords.left}px`,
@@ -131,10 +171,10 @@ export default function TranslationOverlay({ elements, pageDimensions }: Transla
               minHeight: `${screenCoords.height}px`,
               maxHeight: `${screenCoords.height}px`
             }}
-            title={`Original: ${element.value}\nTranslation: ${element.value_en}`}
+            title={tooltipText}
           >
             <div className="line-clamp-3">
-              {element.value_en}
+              {displayText}
             </div>
           </div>
         );

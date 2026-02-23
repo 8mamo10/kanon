@@ -23,65 +23,45 @@ export default function AnalysisResults({ analysis, metadata }: AnalysisResultsP
 
   // Convert mm values to inches (1 inch = 25.4 mm)
   const convertMmToInches = (value: string, category: string): string => {
-    // Debug logging
-    console.log('convertMmToInches called:', { value, category });
-
     // Only convert for dimension category
     if (category !== 'dimension') {
-      console.log('Not a dimension category, returning empty');
       return '';
     }
 
     // Parse the value to extract number and unit
     // Expected formats: "100mm", "25.4mm", "5.5 mm", etc.
     const match = value.match(/^([\d.]+)\s*mm$/i);
-    console.log('Regex match result:', match);
 
     if (!match) {
-      console.log('No match found, returning empty');
       return ''; // Not a mm value, leave empty
     }
 
     const mmValue = parseFloat(match[1]);
-    console.log('Parsed mm value:', mmValue);
 
     if (isNaN(mmValue)) {
-      console.log('Invalid number, returning empty');
       return ''; // Invalid number
     }
 
     // Convert mm to inches: inches = mm / 25.4
     const inches = mmValue / 25.4;
-    const result = `${inches.toFixed(2)}"`;
-    console.log('Conversion result:', result);
 
     // Format to 2 decimal places with inch symbol
-    return result;
+    return `${inches.toFixed(2)}"`;
   };
 
   // Combine all extracted elements into table rows
   const getTableRows = () => {
     const rows: { category: string; value: string; value_en: string; unit_conversion: string }[] = [];
 
-    console.log('=== Analysis Data ===');
-    console.log('Full analysis object:', analysis);
-    console.log('Dimensions array:', analysis.dimension);
-
     if (analysis.dimension) {
-      console.log('Processing dimensions, count:', analysis.dimension.length);
-      analysis.dimension.forEach((item, index) => {
-        console.log(`Dimension [${index}]:`, item);
-        const conversion = convertMmToInches(item.value, 'dimension');
-        console.log(`Conversion for "${item.value}":`, conversion);
+      analysis.dimension.forEach(item => {
         rows.push({
           category: 'dimension',
           value: item.value,
           value_en: '', // Empty for dimensions
-          unit_conversion: conversion
+          unit_conversion: convertMmToInches(item.value, 'dimension')
         });
       });
-    } else {
-      console.log('No dimensions found in analysis');
     }
 
     if (analysis.annotation) {
