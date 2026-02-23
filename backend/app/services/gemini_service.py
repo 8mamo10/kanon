@@ -119,6 +119,9 @@ class GeminiService:
                 # Log coordinate details for overlay debugging
                 self._log_coordinate_details(analysis_result)
 
+                # Save to file for mock data generation
+                self._save_analysis_to_file(analysis_result)
+
                 logger.info("Successfully completed Gemini analysis")
                 return analysis_result
 
@@ -330,6 +333,38 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
             "key_insights": ["Document contains no extractable text"]
         }
 
+    def _save_analysis_to_file(self, analysis_result: Dict[str, Any]) -> None:
+        """Save analysis result to files for archiving and mock data.
+
+        Saves to two locations:
+        1. Timestamped file in gemini_outputs/ for archiving
+        2. mock_data.json for use as mock data when Gemini API is not configured
+        """
+        try:
+            import os
+            from datetime import datetime
+
+            # Create output directory if it doesn't exist
+            output_dir = "./gemini_outputs"
+            os.makedirs(output_dir, exist_ok=True)
+
+            # Save timestamped archive file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            archive_file = f"{output_dir}/gemini_analysis_{timestamp}.json"
+            with open(archive_file, 'w', encoding='utf-8') as f:
+                json.dump(analysis_result, f, indent=2, ensure_ascii=False)
+            logger.info(f"Analysis archived to: {archive_file}")
+
+            # Save to mock_data.json (overwriting previous)
+            mock_data_file = "./mock_data.json"
+            with open(mock_data_file, 'w', encoding='utf-8') as f:
+                json.dump(analysis_result, f, indent=2, ensure_ascii=False)
+            logger.info(f"Mock data updated: {mock_data_file}")
+            logger.info("This file will be used for mock analysis when Gemini API is not configured")
+
+        except Exception as e:
+            logger.warning(f"Failed to save analysis to file: {str(e)}")
+
     def _log_coordinate_details(self, analysis_result: Dict[str, Any]) -> None:
         """Log detailed coordinate information for debugging overlays."""
         logger.info("=" * 80)
@@ -380,91 +415,72 @@ Respond ONLY with valid JSON. Do not include any other text or formatting."""
 
         logger.info("\n" + "=" * 80)
 
+    def _load_mock_data_from_file(self) -> Optional[Dict[str, Any]]:
+        """Load mock data from mock_data.json file.
+
+        Returns:
+            Dictionary containing mock analysis data, or None if file not found/invalid
+        """
+        try:
+            import os
+            mock_data_file = "./mock_data.json"
+
+            if not os.path.exists(mock_data_file):
+                logger.warning(f"Mock data file not found: {mock_data_file}")
+                return None
+
+            with open(mock_data_file, 'r', encoding='utf-8') as f:
+                mock_data = json.load(f)
+
+            logger.info(f"Loaded mock data from: {mock_data_file}")
+            return mock_data
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in mock data file: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to load mock data file: {str(e)}")
+            return None
+
     def _get_mock_analysis(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
-        """Return mock analysis data when Gemini is not enabled."""
-        page_count = metadata.get("page_count", 0)
-        title = metadata.get("title", "PDF Document")
+        """Return mock analysis data when Gemini is not enabled.
 
-        mock_result = {
-            "summary": f"This is a {page_count}-page PDF document titled '{title}'. Gemini API analysis is not configured - this is mock data for testing the PDF viewer with normalized coordinates.",
-            "classification": {
-                "document_type": "PDF Document (Mock Analysis)",
-                "industry": "General",
-                "confidence": "low"
-            },
-            "dimension": [
-                {
-                    "value": "100mm",
-                    "coordinate": {
-                        "x": {"left_x": "0.1", "right_x": "0.3"},
-                        "y": {"lower_y": "0.35", "upper_y": "0.30"}
-                    }
-                },
-                {
-                    "value": "5.5\"",
-                    "coordinate": {
-                        "x": {"left_x": "0.5", "right_x": "0.7"},
-                        "y": {"lower_y": "0.25", "upper_y": "0.20"}
-                    }
-                }
-            ],
-            "annotation": [
-                {
-                    "value": "サンプル注釈テキスト",
-                    "value_en": "Sample annotation text",
-                    "coordinate": {
-                        "x": {"left_x": "0.15", "right_x": "0.35"},
-                        "y": {"lower_y": "0.45", "upper_y": "0.40"}
-                    }
-                },
-                {
-                    "value": "テスト注記",
-                    "value_en": "Test annotation",
-                    "coordinate": {
-                        "x": {"left_x": "0.6", "right_x": "0.8"},
-                        "y": {"lower_y": "0.55", "upper_y": "0.50"}
-                    }
-                }
-            ],
-            "title_block": [
-                {
-                    "value": "図面番号: MOCK-001",
-                    "value_en": "Drawing Number: MOCK-001",
-                    "coordinate": {
-                        "x": {"left_x": "0.7", "right_x": "0.95"},
-                        "y": {"lower_y": "0.95", "upper_y": "0.90"}
-                    }
-                },
-                {
-                    "value": "改訂: A",
-                    "value_en": "Revision: A",
-                    "coordinate": {
-                        "x": {"left_x": "0.7", "right_x": "0.85"},
-                        "y": {"lower_y": "0.90", "upper_y": "0.87"}
-                    }
-                }
-            ],
-            "others": [
-                {
-                    "value": "This is mock data - Gemini API not configured",
-                    "coordinate": {
-                        "x": {"left_x": "0.05", "right_x": "0.45"},
-                        "y": {"lower_y": "0.08", "upper_y": "0.05"}
-                    }
-                }
-            ],
-            "key_insights": [
-                "Gemini API key is not configured",
-                "This is mock data for testing PDF display",
-                "Using normalized coordinates (0-1 range) where (0,0) = top-left",
-                "Configure GEMINI_API_KEY in .env to enable real analysis"
-            ]
-        }
+        Loads mock data from mock_data.json file. This file can be updated
+        by running a real Gemini analysis (which auto-saves to this file)
+        or by manually editing the file.
+        """
+        # Try to load mock data from file
+        mock_result = self._load_mock_data_from_file()
 
-        # Log mock data for debugging
+        # Fall back to minimal default if file not found
+        if not mock_result:
+            page_count = metadata.get("page_count", 0)
+            title = metadata.get("title", "PDF Document")
+
+            logger.warning("Using fallback mock data (mock_data.json not found)")
+            mock_result = {
+                "summary": f"This is a {page_count}-page PDF document titled '{title}'. Gemini API analysis is not configured. Please create backend/mock_data.json file or configure GEMINI_API_KEY in .env.",
+                "classification": {
+                    "document_type": "PDF Document (No Mock Data)",
+                    "industry": "General",
+                    "confidence": "low"
+                },
+                "dimension": [],
+                "annotation": [],
+                "title_block": [],
+                "others": [],
+                "key_insights": [
+                    "Gemini API key is not configured",
+                    "mock_data.json file not found",
+                    "Please upload a PDF with Gemini API enabled to generate mock_data.json",
+                    "Or manually create backend/mock_data.json with analysis data"
+                ]
+            }
+
+        # Log mock data source
         logger.info("=" * 80)
-        logger.info("RETURNING MOCK ANALYSIS DATA (Normalized Coordinates):")
-        logger.info(json.dumps(mock_result, indent=2, ensure_ascii=False))
+        logger.info("RETURNING MOCK ANALYSIS DATA:")
+        logger.info(f"Data loaded from: {'mock_data.json' if self._load_mock_data_from_file() else 'fallback (no file)'}")
         logger.info("=" * 80)
         self._log_coordinate_details(mock_result)
 

@@ -42,7 +42,11 @@ Thumbs.db
 
 # Project specific
 uploads/
+gemini_outputs/
 *.pyc
 .pytest_cache/
 .coverage
 htmlcov/
+
+mock_data.json
+
